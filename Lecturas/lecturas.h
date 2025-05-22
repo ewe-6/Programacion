@@ -1,0 +1,14 @@
+int LeerEnteros(char* mensaje);
+int E2LeerEnteros(char* mensaje, int min, int max);
+int E1MinLeerEnteros(char* mensaje, int min);
+int E1MaxLeerEnteros(char* mensaje, int max);
+int C2LeerEnteros(char* mensaje, int min, int max);
+int C1MinLeerEnteros(char* mensaje, int min);
+int C1MaxLeerEnteros(char* mensaje, int max);
+float LeerReal(char* mensaje);
+float E2LeerReal(char* mensaje, float min, float max);
+float E1MinLeerReal(char* mensaje, float min);
+float E1MaxLeerReal(char* mensaje, float max);
+float C2LeerReal(char* mensaje, float min, float max);
+float C1MinLeerReal(char* mensaje, float min);
+float C1MaxLeerReal(char* mensaje, float max);
