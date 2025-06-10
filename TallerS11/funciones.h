@@ -1,0 +1,10 @@
+int LeerCodigo(char* mensaje);
+int LeerAnio(char* mensaje);
+char LeerTitulo();
+char LeerAutor();
+char LeerEstado();
+void MostrarLibros();
+int BuscarLibroID();
+int BuscarLibroTitulo();
+void ActualizarEstado();
+void EliminarLibro();
