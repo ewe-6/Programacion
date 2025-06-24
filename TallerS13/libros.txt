@@ -1,0 +1,3 @@
+  Num                  ID              Titulo               Autor                Anio              Estado
+    1                1431             Piratas                Juan                1999          Disponible
+    2                2494               Tunel                Pepe                2000          Disponible
