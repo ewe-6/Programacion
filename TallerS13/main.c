@@ -15,7 +15,6 @@ int NumeroDeLibros(){
 void GuardarLibros(const char* nombre_archivo, int num, int id, const char* titulo, const char* autor, int anio, const char* estado) {
     FILE* archivo = fopen(nombre_archivo, "a");
     if (archivo == NULL) {
-        printf("Error al abrir el archivo '%s' para guardar los datos.\n", nombre_archivo);
         return;
     }
     fprintf(archivo, "%5d%20d%20s%20s%20d%20s\n", num, id, titulo, autor, anio, estado);
@@ -84,15 +83,24 @@ void LeerEstado(char* mensaje, char* estado, int tam){
     } while (strcmp(estado, "Disponible")!=0 && strcmp(estado, "Prestado")!=0);
 }
 
-int BuscarLibroID(int idbuscar, int cantidad){
-    int posicion=-1;
-    for (int i=0; i<cantidad; i++){
-        if (libro[i].ids==idbuscar){
-            posicion=i;
-            return posicion;
+void BuscarYMostrarPorID(const char* nombre_archivo, int id_buscado){
+    FILE* archivo=fopen(nombre_archivo, "r");
+    if (archivo == NULL) {
+        printf("No se pudo abrir el archivo.\n");
+        return;
+    }
+    char linea[256];
+    int id;
+    while (fgets(linea, sizeof(linea), archivo)) {
+        sscanf(linea, "%*d%d", &id);
+        if (id == id_buscado) {
+            printf("Libro encontrado:\n %s", linea);
+            fclose(archivo);
+            return;
         }
     }
-    return posicion;
+    printf("No se encontró el libro con ID %d\n", id_buscado);
+    fclose(archivo);
 }
 
 void LeerDatosLibros(int cantidad, int inicio){
@@ -162,61 +170,135 @@ int OpcionBuscarLibro(char* mensaje){
     return opcion;
 }
 
-int BuscarLibroTitulo(const char* nombre_archivo, const char* titulo_buscar, char* linea_encontrada){
+void BuscarYMostrarPorTitulo(const char* nombre_archivo, const char* titulo_buscado) {
     FILE* archivo = fopen(nombre_archivo, "r");
-    if (archivo == NULL) {
-        printf("Error al abrir el archivo '%s'.\n", nombre_archivo);
-        return -1;
+    if (!archivo) {
+        printf("No se pudo abrir el archivo.\n");
+        return;
     }
-
-    char linea[256];
-    fgets(linea, sizeof(linea), archivo); // Leer la cabecera del archivo
-
-    while (fgets(linea, sizeof(linea), archivo) != NULL) {
-        char titulo[100];
-        sscanf(linea, "%*d %*d %99s", titulo); // Extraer el título
-        if (strcmp(titulo, titulo_buscar) == 0) {
-            strcpy(linea_encontrada, linea); // Copiar la línea encontrada
+    char linea[256], titulo[100];
+    while (fgets(linea, sizeof(linea), archivo)) {
+        sscanf(linea, "%*d%*d%99s", titulo);
+        if (strcmp(titulo, titulo_buscado) == 0) {
+            printf("Libro encontrado:\n %s", linea);
             fclose(archivo);
-            return 1; // Encontrado
+            return;
         }
     }
-
+    printf("No se encontró el libro con título %s\n", titulo_buscado);
     fclose(archivo);
-    return 0; // No encontrado
 }
 
-void MostrarDatosLibro(int posicion){
-    printf("DATOS DEL LIBRO #%d:\n", posicion+1);
-    printf("ID: %d\nTitulo: %s\nAutor: %s\nAnio: %d\nEstado: %s\n", libro[posicion].ids, libro[posicion].titulos, libro[posicion].autores, libro[posicion].anios, libro[posicion].estados);
-}
-
-void ActualizarEstado(int posicion, char nuevoestado[11], char* estado){
-    if (strcmp(libro[posicion].estados, nuevoestado) == 0) {
-        printf("El estado del libro '%s' ya es '%s'\n", libro[posicion].titulos, nuevoestado);
+void ActualizarEstadoPorTitulo(const char* nombre_archivo, const char* titulo_buscado, const char* nuevo_estado){
+    FILE* archivo = fopen(nombre_archivo, "r");
+    FILE* temp = fopen("temp.txt", "w");
+    if (!archivo || !temp) {
+        printf("Error abriendo archivos.\n");
         return;
     }
-    else {
-        strcpy(libro[posicion].estados, nuevoestado);
-        printf("Estado del libro '%s' actualizado a '%s'\n", libro[posicion].titulos, libro[posicion].estados);
-    }
-}
-
-void EliminarLibro(int posicion, int* cantidad){
-    if(strcmp(libro[posicion].estados, "Prestado")==0) {
-        printf("No se puede eliminar el libro '%s' porque esta prestado\n", libro[posicion].titulos);
-        return;
-    }
-    else{
-        for (int i=posicion; i<*cantidad; i++){
-            libro[i] = libro[i+1];
-            if (i==*cantidad-1) {
-                libro[i+1].ids = 0;
-            }
+    char linea[256], titulo[100], autor[50], estado[11];
+    int num, id, anio, encontrado = 0;
+    while (fgets(linea, sizeof(linea), archivo)) {
+        sscanf(linea, "%d%d%99s%49s%d%10s", &num, &id, titulo, autor, &anio, estado);
+        if (strcmp(titulo, titulo_buscado)==0) {
+            fprintf(temp, "%5d%20d%20s%20s%20d%20s\n", num, id, titulo, autor, anio, nuevo_estado);
+            encontrado = 1;
+        } else {
+            fputs(linea, temp);
         }
-        (*cantidad)--;
-        printf("Libro eliminado exitosamente\n");
-        printf("Cantidad actual de libros: %d\n", *cantidad);
+    }
+    fclose(archivo);
+    fclose(temp);
+    remove(nombre_archivo);
+    rename("temp.txt", nombre_archivo);
+    if (encontrado)
+        printf("Estado actualizado correctamente.\n");
+    else
+        printf("No se encontró el libro con Titulo %s\n", titulo_buscado);
+}
+
+void ActualizarEstadoPorID(const char* nombre_archivo, int id_buscado, const char* nuevo_estado) {
+    FILE* archivo = fopen(nombre_archivo, "r");
+    FILE* temp = fopen("temp.txt", "w");
+    if (!archivo || !temp) {
+        printf("Error abriendo archivos.\n");
+        return;
+    }
+    char linea[256], titulo[100], autor[50], estado[11];
+    int num, id, anio, encontrado = 0;
+    while (fgets(linea, sizeof(linea), archivo)) {
+        sscanf(linea, "%d%d%99s%49s%d%10s", &num, &id, titulo, autor, &anio, estado);
+        if (id == id_buscado) {
+            fprintf(temp, "%5d%20d%20s%20s%20d%20s\n", num, id, titulo, autor, anio, nuevo_estado);
+            encontrado = 1;
+        } else {
+            fputs(linea, temp);
+        }
+    }
+    fclose(archivo);
+    fclose(temp);
+    remove(nombre_archivo);
+    rename("temp.txt", nombre_archivo);
+    if (encontrado){
+        printf("Estado actualizado correctamente.\n");
+    }else{
+        printf("No se encontró el libro con ID %d\n", id_buscado);
+    }
+}
+
+void EliminarPorID(const char* nombre_archivo, int id_buscado) {
+    FILE* archivo = fopen(nombre_archivo, "r");
+    FILE* temp = fopen("temp.txt", "w");
+    if (!archivo || !temp) {
+        printf("Error abriendo archivos.\n");
+        return;
+    }
+    char linea[256], titulo[100], autor[50], estado[11];
+    int num, id, anio, eliminado = 0;
+    while (fgets(linea, sizeof(linea), archivo)) {
+        sscanf(linea, "%d%d%99s%49s%d%10s", &num, &id, titulo, autor, &anio, estado);
+        if (id == id_buscado) {
+            eliminado = 1; // No escribir esta línea
+        } else {
+            fputs(linea, temp);
+        }
+    }
+    fclose(archivo);
+    fclose(temp);
+    remove(nombre_archivo);
+    rename("temp.txt", nombre_archivo);
+    if (eliminado){
+        printf("Libro eliminado correctamente.\n");
+    }else{
+        printf("No se encontró el libro con ID %d\n", id_buscado);
+    }
+}
+
+void EliminarPorTitulo(const char* nombre_archivo, const char* titulo_buscado) {
+    FILE* archivo = fopen(nombre_archivo, "r");
+    FILE* temp = fopen("temp.txt", "w");
+    if (!archivo || !temp) {
+        printf("Error abriendo archivos.\n");
+        return;
+    }
+    char linea[256], titulo[100], autor[50], estado[11];
+    int num, id, anio, eliminado = 0;
+    while (fgets(linea, sizeof(linea), archivo)) {
+        sscanf(linea, "%d%d%99s%49s%d%10s", &num, &id, titulo, autor, &anio, estado);
+        if (strcmp(titulo, titulo_buscado)==0) {
+            eliminado = 1;
+        } else {
+            fputs(linea, temp);
+        }
+    }
+    fclose(archivo);
+    fclose(temp);
+    remove(nombre_archivo);
+    rename("temp.txt", nombre_archivo);
+    if (eliminado){
+        printf("Libro eliminado correctamente.\n");
+    }else{
+        printf("No se encontró el libro con Titulo %s\n", titulo_buscado);
     }
 }
 
@@ -229,7 +311,7 @@ int main(){
         switch (opcion){
             case 1:
                 cantlibrosinicial = NumeroDeLibros();
-                cantlibros=LeerCantidadLibros("Ingrese la cantidad de libros que desea registrar", 1);
+                cantlibros=cantlibrosinicial+LeerCantidadLibros("Ingrese la cantidad de libros que desea registrar", 1);
                 LeerDatosLibros(cantlibros, cantlibrosinicial);
             break;
             case 2:
@@ -240,21 +322,11 @@ int main(){
                 switch (opcionbuscar){
                     case 1:
                         idbusc = LeerID("Ingrese ID del libro a buscar");
-                        posidbusc = BuscarLibroID(idbusc, cantlibros);
-                        if (posidbusc != -1) {
-                            MostrarDatosLibro(posidbusc);
-                        } else {
-                            printf("No se encontro el libro con ID: '%d'\n", idbusc);
-                        }
+                        BuscarYMostrarPorID("libros.txt", idbusc);
                     break;
                     case 2:
                         LeerTitulo("Ingrese Titulo del libro a buscar", titulobusc, sizeof(titulobusc));
-                        postitulobusc=BuscarLibroTitulo(titulobusc, cantlibros);
-                        if (postitulobusc != -1) {
-                            MostrarDatosLibro(postitulobusc);
-                        } else {
-                            printf("No se encontro el libro con el titulo: '%s'\n", titulobusc);
-                        }
+                        BuscarYMostrarPorTitulo("libros.txt", titulobusc);
                     break;
                     case 3:
                         printf("Volviendo al menu principal\n");
@@ -266,23 +338,13 @@ int main(){
                 switch (opcionbuscar){
                     case 1:
                         idbusc = LeerID("Ingrese ID del libro a actualizar");
-                        posidbusc = BuscarLibroID(idbusc, cantlibros);
-                        if (posidbusc != -1) {
-                            LeerEstado("Ingrese el nuevo estado del libro", nuevoestado, sizeof(nuevoestado));
-                            ActualizarEstado(posidbusc, nuevoestado, libro[posidbusc].estados);
-                        } else {
-                            printf("No se encontro el libro con ID: '%d'\n", idbusc);
-                        }
+                        LeerEstado("Ingrese el nuevo estado del libro", nuevoestado, sizeof(nuevoestado));
+                        ActualizarEstadoPorID("libros.txt", idbusc, nuevoestado);
                     break;
                     case 2:
                         LeerTitulo("Ingrese Titulo del libro a actualizar", titulobusc, sizeof(titulobusc));
-                        postitulobusc = BuscarLibroTitulo(titulobusc, cantlibros);
-                        if (postitulobusc != -1) {
-                            LeerEstado("Ingrese el nuevo estado del libro", nuevoestado, sizeof(nuevoestado));
-                            ActualizarEstado(postitulobusc, nuevoestado, libro[postitulobusc].estados);
-                        } else {
-                            printf("No se encontro el libro con el titulo: '%s'\n", titulobusc);
-                        }
+                        LeerEstado("Ingrese el nuevo estado del libro", nuevoestado, sizeof(nuevoestado));
+                        ActualizarEstadoPorTitulo("libros.txt", titulobusc, nuevoestado);
                     break;
                     case 3:
                         printf("Volviendo al menu principal\n");
@@ -293,28 +355,19 @@ int main(){
                 switch (opcionbuscar){
                     case 1:
                         idbusc = LeerID("Ingrese ID del libro a eliminar");
-                        posidbusc = BuscarLibroID(idbusc, cantlibros);
-                        if (posidbusc != -1) {
-                            EliminarLibro(posidbusc, &cantlibros);
-                        } else {
-                            printf("No se encontro el libro con ID: '%d'\n", idbusc);
-                        }
+                        EliminarPorID("libros.txt", idbusc);
                     break;
                     case 2:
                         LeerTitulo("Ingrese Titulo del libro a eliminar", titulobusc, sizeof(titulobusc));
-                        postitulobusc = BuscarLibroTitulo(titulobusc, cantlibros);
-                        if (postitulobusc != -1) {
-                            EliminarLibro(postitulobusc, &cantlibros);
-                        } else {
-                            printf("No se encontro el libro con el titulo: '%s'\n", titulobusc);
-                        }
+                        EliminarPorTitulo("libros.txt", titulobusc);
+                        
                     break;
                     case 3:
                         printf("Volviendo al menu principal\n");
+
                 }
             break;
             case 6:
-                GuardarLibrosFinal("libros.txt", cantlibros);
                 printf("Saliendo del programa\n");
             break;
         }
