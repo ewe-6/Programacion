@@ -1,19 +1,34 @@
 #include <stdio.h>
 #include <string.h>
-#define MAX_LIBROS 10
-typedef struct {
-    int ids, anios;
-    char titulos[100], autores[50], estados[11];
-} Libros;
-Libros libro[MAX_LIBROS];
 
-int LeerCantidadLibros(char* mensaje, int min, int max){
+int NumeroDeLibros(){
+    int num=0;
+    FILE* archivo = fopen("libros.txt", "r");
+    char linea[256];
+    while (fgets(linea, sizeof(linea), archivo) != NULL) {
+    num++;
+    }
+    fclose(archivo);
+    return num;
+}
+
+void GuardarLibros(const char* nombre_archivo, int num, int id, const char* titulo, const char* autor, int anio, const char* estado) {
+    FILE* archivo = fopen(nombre_archivo, "a");
+    if (archivo == NULL) {
+        printf("Error al abrir el archivo '%s' para guardar los datos.\n", nombre_archivo);
+        return;
+    }
+    fprintf(archivo, "%5d%20d%20s%20s%20d%20s\n", num, id, titulo, autor, anio, estado);
+    fclose(archivo);
+}
+
+int LeerCantidadLibros(char* mensaje, int min){
     int cantidad;
-    printf("%s (entre %d y %d): ", mensaje, min, max);
-    while (scanf("%d", &cantidad)!=1 || cantidad<min || cantidad>max) {
-        printf("Dato mal ingresado, debe ser un numero entre %d y %d\n", min, max);
+    printf("%s (mayor a %d): ", mensaje, min);
+    while (scanf("%d", &cantidad)!=1 || cantidad<min) {
+        printf("Dato mal ingresado, debe ser un numero mayor a %d\n", min);
         while(getchar() != '\n');
-        printf("%s (entre %d y %d): ", mensaje, min, max);
+        printf("%s (mayor a %d): ", mensaje, min);
     }
     while(getchar() != '\n');
     return cantidad;
@@ -49,7 +64,7 @@ int LeerAnio(char* mensaje, int min, int max){
     int valor;
     printf("%s: ", mensaje);
     while (scanf("%d", &valor)!=1 || valor>max || valor<min) {
-        printf("Dato mal ingresado, no puede ser mayor al anio actual (%d) o menor a 0\n", max);
+        printf("Dato mal ingresado, no puede ser mayor al anio actual (%d) o menor a %d\n", max, min);
         while(getchar() != '\n');
         printf("%s: ", mensaje);
     }
@@ -80,25 +95,28 @@ int BuscarLibroID(int idbuscar, int cantidad){
     return posicion;
 }
 
-void LeerDatosLibros(int cantidad){
-    for (int i=0; i<cantidad; i++){
+void LeerDatosLibros(int cantidad, int inicio){
+    int ids, anios;
+    char titulos[100], autores[50], estados[11];
+    for (int i=inicio-1; i<cantidad; i++){
         printf("LIBRO #%d:\n", i+1);
         do{
-            libro[i].ids = LeerID("Ingrese ID del libro (tiene que ser un numero positivo, diferente de cero y unico)");
-            if (BuscarLibroID(libro[i].ids, i) != -1) {
+            ids = LeerID("Ingrese ID del libro (tiene que ser un numero positivo, diferente de cero y unico)");
+            if (BuscarLibroID(ids, i) != -1) {
                 printf("Esa ID ya existe, por favor ingresar una ID unica\n");
             }
-        } while(BuscarLibroID(libro[i].ids, i) != -1);
-        LeerTitulo("Ingrese Titulo del libro", libro[i].titulos, sizeof(libro[i].titulos));
-        LeerAutor("Ingrese Autor del libro", libro[i].autores, sizeof(libro[i].autores));
-        libro[i].anios = LeerAnio("Ingrese Anio de publicacion", 0, 2025);
-        LeerEstado("Ingrese Estado del libro (Disponible/Prestado)", libro[i].estados, sizeof(libro[i].estados));
+        } while(BuscarLibroID(ids, i) != -1);
+        LeerTitulo("Ingrese Titulo del libro", titulos, sizeof(titulos));
+        LeerAutor("Ingrese Autor del libro", autores, sizeof(autores));
+        anios = LeerAnio("Ingrese Anio de publicacion", 0, 2025);
+        LeerEstado("Ingrese Estado del libro (Disponible/Prestado)", estados, sizeof(estados));
+        GuardarLibros("libros.txt", i+1, ids, titulos, autores, anios, estados);
     }
 }
 
 void Menu(){
     printf("----------------------------------MENU----------------------------------\n");
-    printf("1. Ingresar datos");
+    printf("1. Ingresar datos\n");
     printf("2. Mostrar lista completa de libros\n");
     printf("3. Buscar libro\n");
     printf("4. Actualizar estado de un libro\n");
@@ -118,12 +136,20 @@ int LeerMenu(char* mensaje, int min, int max){
     return opcion;
 }
 
-void MostrarLibros(int cantidad){
+void MostrarLibros(const char* nombre_archivo){
     printf("Lista de libros:\n");
-    printf("%20s%20s%20s%20s%20s\n", "ID", "Titulo", "Autor", "Anio", "Estado");
-    for (int i = 0; i < cantidad; i++){
-        printf("%20d%20s%20s%20d%20s\n", libro[i].ids, libro[i].titulos, libro[i].autores, libro[i].anios, libro[i].estados);
+    FILE* archivo = fopen(nombre_archivo, "r");
+    if (archivo == NULL) {
+        printf("No tiene ningun libro registrado\n");
+        return;
     }
+    char linea[256];
+    fgets(linea, sizeof(linea), archivo);
+    printf("%s", linea);
+    while (fgets(linea, sizeof(linea), archivo) != NULL) {
+        printf("%s", linea);
+    }
+    fclose(archivo);
 }
 
 int OpcionBuscarLibro(char* mensaje){
@@ -136,15 +162,28 @@ int OpcionBuscarLibro(char* mensaje){
     return opcion;
 }
 
-int BuscarLibroTitulo(char titulobuscar[100], int cantidad){
-    int posicion=-1;
-    for (int i=0; i<cantidad; i++){
-        if (strcmp(libro[i].titulos, titulobuscar) == 0){
-            posicion=i;
-            return posicion;
+int BuscarLibroTitulo(const char* nombre_archivo, const char* titulo_buscar, char* linea_encontrada){
+    FILE* archivo = fopen(nombre_archivo, "r");
+    if (archivo == NULL) {
+        printf("Error al abrir el archivo '%s'.\n", nombre_archivo);
+        return -1;
+    }
+
+    char linea[256];
+    fgets(linea, sizeof(linea), archivo); // Leer la cabecera del archivo
+
+    while (fgets(linea, sizeof(linea), archivo) != NULL) {
+        char titulo[100];
+        sscanf(linea, "%*d %*d %99s", titulo); // Extraer el título
+        if (strcmp(titulo, titulo_buscar) == 0) {
+            strcpy(linea_encontrada, linea); // Copiar la línea encontrada
+            fclose(archivo);
+            return 1; // Encontrado
         }
     }
-    return posicion;
+
+    fclose(archivo);
+    return 0; // No encontrado
 }
 
 void MostrarDatosLibro(int posicion){
@@ -182,15 +221,16 @@ void EliminarLibro(int posicion, int* cantidad){
 }
 
 int main(){
-    int opcion, cantlibros, idbusc, posidbusc, postitulobusc, opcionbuscar;
+    int opcion, cantlibros, cantlibrosinicial, idbusc, posidbusc, postitulobusc, opcionbuscar;
     char titulobusc[100], nuevoestado[11];
     do{
         Menu();
         opcion = LeerMenu("Seleccione una opcion del menu", 1, 6);
         switch (opcion){
             case 1:
-                cantlibros=LeerCantidadLibros("Ingrese la cantidad de libros que desea registrar", 1, MAX_LIBROS);
-                LeerDatosLibros(cantlibros);
+                cantlibrosinicial = NumeroDeLibros();
+                cantlibros=LeerCantidadLibros("Ingrese la cantidad de libros que desea registrar", 1);
+                LeerDatosLibros(cantlibros, cantlibrosinicial);
             break;
             case 2:
                 MostrarLibros(cantlibros);
@@ -274,9 +314,10 @@ int main(){
                 }
             break;
             case 6:
+                GuardarLibrosFinal("libros.txt", cantlibros);
                 printf("Saliendo del programa\n");
             break;
         }
-    } while (opcion != 5);
+    } while(opcion!=6);
     return 0;
 }
